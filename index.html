@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MONOPOLY BANK</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="city-glow"></div>
+  <div class="app">
+    <header class="hero">
+      <button class="icon-btn" onclick="goHome()">☰</button>
+      <div class="brand-wrap">
+        <div class="mascot">🎩</div>
+        <div class="brand">MONOPOLY</div>
+        <div class="bank-plate">CENTRAL BANK</div>
+      </div>
+      <button class="icon-btn vault" onclick="logout()">🔐</button>
+    </header>
+
+    <main>
+      <section id="setupCard" class="screen card hidden">
+        <h1>Setup Supabase</h1>
+        <p class="muted">Paste your Supabase keys one time on this device. After this, the site works like a normal app.</p>
+        <label>Supabase URL</label><input id="supabaseUrl" placeholder="https://xxxx.supabase.co" />
+        <label>Supabase Anon Key</label><input id="supabaseKey" placeholder="eyJ..." />
+        <button class="primary wide" onclick="saveConfig()">Save Setup</button>
+      </section>
+
+      <section id="homeCard" class="screen hidden">
+        <div class="welcome-card">
+          <p class="eyebrow">Smart transactions • private balances • no cheating</p>
+          <h1>Game Night Banking</h1>
+          <p>Players only see their own money. Everyone sees the public activity feed. Banker sees the full vault.</p>
+        </div>
+        <div class="join-card card">
+          <h2>Join a Game</h2>
+          <label>Game Code</label><input id="gameCode" maxlength="12" placeholder="e.g. GO200" />
+          <div class="two-btns"><button class="primary" onclick="openLogin('player')">Player Login / Join</button><button class="banker" onclick="openLogin('banker')">Banker Login</button></div>
+        </div>
+        <div class="join-card card">
+          <h2>Create New Game</h2>
+          <label>New Game Code</label><input id="newGameCode" maxlength="12" placeholder="Choose a code" />
+          <label>Banker PIN</label><input id="newBankerPin" type="password" inputmode="numeric" placeholder="Create banker PIN" />
+          <label>Starting Money</label><input id="startingMoney" type="number" value="1500" />
+          <button class="secondary wide" onclick="createGame()">Create Game</button>
+        </div>
+      </section>
+
+      <section id="loginCard" class="screen card hidden">
+        <button class="back" onclick="show('homeCard')">← Back</button>
+        <h1 id="loginTitle">Login</h1>
+        <div id="bankerLoginPanel" class="hidden">
+          <label>Banker PIN</label><input id="bankerPinInput" type="password" inputmode="numeric" />
+          <button class="banker wide" onclick="confirmBankerLogin()">Open Banker Vault</button>
+        </div>
+        <div id="playerLoginPanel" class="hidden">
+          <div class="mini-tabs"><button class="mini-tab active" onclick="switchJoinMode('new',this)">New Player</button><button class="mini-tab" onclick="switchJoinMode('return',this)">Returning Player</button></div>
+          <div id="newPlayerPanel">
+            <label>Your Name</label><input id="joinName" placeholder="Alex" />
+            <label>Create Your PIN</label><input id="joinPin" type="password" inputmode="numeric" />
+            <h3>Choose Character</h3><div id="characterChoices" class="character-grid"></div>
+            <h3>Choose Your Colour</h3><div id="colourChoices" class="colour-grid"></div>
+            <button class="primary wide" onclick="joinGame()">Join Game</button>
+          </div>
+          <div id="returnPlayerPanel" class="hidden">
+            <label>Select Your Name</label><select id="returningPlayerSelect"></select>
+            <label>Your PIN</label><input id="returningPin" type="password" inputmode="numeric" />
+            <button class="primary wide" onclick="confirmPlayerLogin()">Log Back In</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="playerCard" class="screen hidden">
+        <div class="player-top" id="playerTop">
+          <div id="playerProfile" class="profile"></div>
+          <div id="bankruptBadge" class="bankrupt hidden">BANKRUPT</div>
+        </div>
+        <div class="balance-card private">
+          <span>Your private balance</span><strong id="playerBalance">$0</strong>
+          <small>No other player can see this amount.</small>
+        </div>
+        <nav class="bottom-tabs top-tabs">
+          <button class="nav active" onclick="setPlayerView('dash',this)">🏠<span>Home</span></button>
+          <button class="nav" onclick="setPlayerView('send',this)">💸<span>Send</span></button>
+          <button class="nav" onclick="setPlayerView('activity',this)">📜<span>Activity</span></button>
+          <button class="nav" onclick="setPlayerView('identity',this)">🎭<span>Identity</span></button>
+        </nav>
+        <div id="playerDash" class="pane">
+          <div class="action-grid"><button onclick="setPlayerViewByName('send')">Pay Player</button><button onclick="quickPayBank()">Pay Bank</button><button onclick="setPlayerViewByName('activity')">View Activity</button></div>
+          <h2>Players in Game</h2><p class="muted">Names and tokens only. Balances stay private.</p><div id="playerList" class="players-strip"></div>
+        </div>
+        <div id="playerSend" class="pane hidden">
+          <h2>Send Money</h2>
+          <label>Pay To</label><select id="playerToSelect"></select>
+          <label>Amount</label><input id="playerAmount" type="number" min="1" placeholder="250" />
+          <div class="chip-row"><button onclick="setAmount('playerAmount',50)">$50</button><button onclick="setAmount('playerAmount',100)">$100</button><button onclick="setAmount('playerAmount',200)">$200</button><button onclick="setAmount('playerAmount',500)">$500</button></div>
+          <label>Note</label><input id="playerNote" placeholder="Rent - Boardwalk, Tax, Trade..." />
+          <button id="playerSendBtn" class="primary wide" onclick="playerSendMoney()">Send Money</button>
+          <div id="playerError" class="error-box hidden"></div>
+        </div>
+        <div id="playerActivity" class="pane hidden">
+          <h2>Transactions</h2>
+          <div class="seg"><button id="allTxBtn" class="active" onclick="setHistoryFilter('all')">All Transactions</button><button id="myTxBtn" onclick="setHistoryFilter('mine')">My Transactions</button></div>
+          <div class="filter-row"><button class="filter active" onclick="setSubFilter('all',this)">All</button><button class="filter" onclick="setSubFilter('toMe',this)">To Me</button><button class="filter" onclick="setSubFilter('fromMe',this)">From Me</button><button class="filter" onclick="setSubFilter('bank',this)">Bank</button></div>
+          <div id="playerHistory" class="timeline"></div>
+        </div>
+        <div id="playerIdentity" class="pane hidden">
+          <h2>Your Identity</h2><p class="muted">Your character and colour represent you everywhere in the app.</p><div id="identityPreview" class="identity-preview"></div>
+        </div>
+      </section>
+
+      <section id="bankerCard" class="screen hidden">
+        <div class="banker-head"><div><p class="eyebrow">Banker Vault</p><h1>Game <span id="bankerGameName"></span></h1></div><div class="vault-coin">🏦</div></div>
+        <nav class="bottom-tabs top-tabs banker-tabs">
+          <button class="nav active" onclick="setBankerView('overview',this)">🏠<span>Vault</span></button>
+          <button class="nav" onclick="setBankerView('transfer',this)">💸<span>Transfer</span></button>
+          <button class="nav" onclick="setBankerView('ledger',this)">📜<span>Ledger</span></button>
+          <button class="nav" onclick="setBankerView('settings',this)">⚙️<span>Settings</span></button>
+        </nav>
+        <div id="bankerOverview" class="pane"><h2>Player Balances</h2><p class="muted">Only the banker can see this vault view.</p><div id="bankerBalances" class="balance-grid"></div></div>
+        <div id="bankerTransfer" class="pane hidden"><h2>Banker Transfer</h2><div class="two-cols"><div><label>From</label><select id="fromSelect"></select></div><div><label>To</label><select id="toSelect"></select></div></div><label>Amount</label><input id="bankerAmount" type="number" min="1" /><label>Note</label><input id="bankerNote" placeholder="Salary, Tax, Auction, Correction" /><button class="banker wide" onclick="bankerTransfer()">Post Transaction</button><div id="bankerError" class="error-box hidden"></div></div>
+        <div id="bankerLedger" class="pane hidden"><h2>Full Ledger</h2><div id="bankerHistory" class="timeline"></div></div>
+        <div id="bankerSettings" class="pane hidden"><h2>Game Settings</h2><button class="danger wide" onclick="resetGame()">Reset Game to Starting Money</button><button class="ghost wide" onclick="logout()">Log Out</button></div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
